@@ -17,11 +17,11 @@ const VILLAGES=[
 ];
 const KEY='dangame-progress-v1';
 function load(){try{return Object.assign(fresh(),JSON.parse(localStorage.getItem(KEY)||'{}'));}catch(e){return fresh();}}
-function fresh(){return {done:[false,false,false,false],solved:{},visits:[0,0,0,0],relayDone:false,celebrated:false,muted:false};}
+function fresh(){return {done:[false,false,false,false],solved:{},visits:[0,0,0,0],relayDone:false,celebrated:false,muted:false,grade:null};}
 let P=load();
 function save(){localStorage.setItem(KEY,JSON.stringify(P));}
 const nDone=()=>P.done.filter(Boolean).length;
-const unlocked=i=>i===0||P.done[i-1];
+const unlocked=i=>i===0||i<=(P.grade||1)-1||P.done[i-1];
 
 // ---------- speech ----------
 let curAudio=null;
@@ -55,7 +55,7 @@ function top(title){return `<div class="top"><button class="pill" data-act="map"
 function confetti(n){let h='';const cs=['#e53935','#ffb300','#43a047','#1e88e5','#8e24aa','#ff80ab'];for(let i=0;i<(n||60);i++)h+=`<i class="conf" style="left:${Math.random()*1280}px;background:${cs[i%6]};animation-duration:${2+Math.random()*3}s;animation-delay:${Math.random()*2}s"></i>`;return h;}
 function show(html,night){stopSpeech();stage.className=night?'night':'';stage.innerHTML=html;}
 stage.addEventListener('click',e=>{const sp=e.target.closest('[data-say]');if(sp){e.stopPropagation();if(P.muted){toast('🔇 Звукът е изключен (меню Родители)');return;}say(sp.dataset.say);return;}const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
- stopSpeech();if(a==='map')map();else if(a==='play')map();else if(a==='parents')parents();else if(a==='drawing')drawingScreen();else if(a==='title')title();});
+ stopSpeech();if(a==='map')map();else if(a==='play'){P.grade?map():gradeScreen();}else if(a==='parents')parents();else if(a==='drawing')drawingScreen();else if(a==='title')title();});
 
 // ---------- screens ----------
 function title(){show(ISLAND+`<div class="abs" style="top:70px;width:100%;text-align:center"><div style="font-size:110px;font-weight:900;color:#fff;-webkit-text-stroke:4px #6a1b9a;text-shadow:0 8px 0 #6a1b9a">DanGame</div>
@@ -65,12 +65,17 @@ function title(){show(ISLAND+`<div class="abs" style="top:70px;width:100%;text-a
 <div class="abs" style="top:560px;width:100%;text-align:center"><button class="btn g" data-act="play" style="font-size:46px">▶ Играй</button>&nbsp;&nbsp;<button class="btn p" data-act="parents">Родители</button></div>
 <div class="abs pill" style="bottom:14px;right:16px;font-size:16px">За деца 7–10 години</div>`);}
 
+function gradeScreen(fromParents){show(ISLAND+`<div class="abs card" style="left:190px;top:110px;width:900px;padding:34px;text-align:center">
+<div style="font-size:44px;font-weight:900">В кой клас си? ${spk('ui-grade',60)}</div><div style="font-size:24px;margin:8px 0 26px">Ще започнеш от селото за твоя клас.</div>
+<div style="display:flex;justify-content:center;gap:24px">${VILLAGES.map((v,i)=>`<button class="gradeBtn" data-g="${i+1}" style="width:170px;height:200px;border-radius:30px;border:6px solid ${v.color};background:#fff;cursor:pointer;font-family:inherit;box-shadow:0 8px 0 ${v.color}"><div style="font-size:84px;font-weight:900;color:${v.color}">${i+1}</div><div style="font-size:26px;font-weight:900">клас</div><div style="font-size:16px;color:#555">${v.short}</div></button>`).join('')}</div></div>`);
+ stage.querySelectorAll('.gradeBtn').forEach(b=>b.onclick=()=>{P.grade=+b.dataset.g;save();map();toast('Започваш от '+VILLAGES[P.grade-1].name+'!');});
+ say('ui-grade');}
 function map(){
  if(nDone()===4&&!P.celebrated){return finale();}
  let h=ISLAND+`<svg width="1280" height="800" class="abs" style="left:0;top:0"><path d="M225 300 C 380 300, 420 520, 545 490 S 760 300, 865 300 S 1000 520, 1065 500" stroke="#fff" stroke-width="14" fill="none" stroke-dasharray="4 26" stroke-linecap="round"/></svg>`+top('Картата на острова');
  VILLAGES.forEach((v,i)=>{const st=P.done[i]?'done':unlocked(i)?'open':'lock';
   h+=`<div class="village ${st==='lock'?'lock':''}" data-v="${i}" style="left:${v.x}px;top:${v.y}px">${house(v.color)}<div class="name" style="border-color:${v.color}">${i+1}. ${v.name}</div><div style="margin-top:4px">${st==='lock'?'<span style="font-size:40px">🔒</span>':villageStar(i,i===3?56:48)}</div></div>`;});
- const next=P.done.indexOf(false);
+ let next=P.done.findIndex((d,i)=>!d&&i>=(P.grade||1)-1);if(next<0)next=P.done.indexOf(false);
  h+=`<div class="card" style="left:30px;top:640px;width:720px;padding:14px 22px 14px 90px;font-size:23px"><span style="position:absolute;left:14px;top:14px">${spk('ui-map',60)}</span>${next<0?'Всички села са спасени! 🎉 Можеш да играеш отново във всяко село.':`<b>Следва:</b> ${VILLAGES[next].name} – ${['лесни задачи за начало','по-трудни задачи','още по-трудни задачи','най-трудните задачи на острова'][next]}. Натисни селото!`}</div>
  <div class="abs" style="left:790px;top:660px"><button class="btn p s" data-act="drawing">🖼 Рисунката</button> <button class="btn s" data-act="parents" style="background:#90a4ae;box-shadow:0 6px 0 #546e7a">⚙ Родители</button></div>`;
  show(h);
@@ -82,10 +87,11 @@ function parents(){const m=document.createElement('div');m.className='modal';
  m.innerHTML=`<div class="box"><div style="font-size:34px;font-weight:900;margin-bottom:10px">⚙ За родители</div>
  <p>Завършени села: <b>${nDone()} от 4</b><br>Решени задачи: <b>${Object.keys(P.solved).length}</b></p>
  <p style="font-size:18px;color:#666;margin:12px 0">Задачите са от примерните тестове „Математика без граници“ (1.–4. клас). Прогресът се пази само на това устройство.</p>
- <p style="margin:10px 0"><button class="btn s ${P.muted?'':'g'}" id="mute">${P.muted?'🔇 Гласът е изключен – включи':'🔊 Гласът е включен – изключи'}</button></p><p style="margin:14px 0">За да изтриеш прогреса, реши: <b id="pq"></b> <input id="pa" inputmode="numeric" style="width:90px;font-size:26px;text-align:center;border:3px solid #7e57c2;border-radius:12px"></p>
+ <p style="margin:10px 0"><button class="btn s ${P.muted?'':'g'}" id="mute">${P.muted?'🔇 Гласът е изключен – включи':'🔊 Гласът е включен – изключи'}</button></p><p style="margin:10px 0">Клас: <b>${P.grade||'не е избран'}</b> <button class="btn s p" id="chg">Смени класа</button></p><p style="margin:14px 0">За да изтриеш прогреса, реши: <b id="pq"></b> <input id="pa" inputmode="numeric" style="width:90px;font-size:26px;text-align:center;border:3px solid #7e57c2;border-radius:12px"></p>
  <button class="btn s" id="reset" style="background:#e53935;box-shadow:0 6px 0 #b71c1c">Изтрий прогреса</button> <button class="btn g s" id="close">Затвори</button></div>`;
  stage.appendChild(m);const a=6+Math.floor(Math.random()*4),b=6+Math.floor(Math.random()*4);m.querySelector('#pq').textContent=`${a} × ${b} =`;
  m.querySelector('#close').onclick=()=>m.remove();
+ m.querySelector('#chg').onclick=()=>{m.remove();gradeScreen(true);};
  m.querySelector('#mute').onclick=()=>{P.muted=!P.muted;save();stopSpeech();m.remove();parents();};
  m.querySelector('#reset').onclick=()=>{if(+m.querySelector('#pa').value===a*b){P=fresh();save();m.remove();title();toast('Прогресът е изтрит.');}else{m.querySelector('#pa').style.borderColor='#e53935';}};
 }
